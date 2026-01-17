@@ -27,4 +27,4 @@ Python成绩分析工具
 1.  克隆本仓库
     ```bash
     git clone https://github.com/fh3338/scores-tool.git
-    cd 你的仓库名
+    cd scores-tool
