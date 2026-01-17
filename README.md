@@ -26,5 +26,5 @@ Python成绩分析工具
 ### 本地运行步骤
 1.  克隆本仓库
     ```bash
-    git clone https://github.com/你的GitHub用户名/你的仓库名.git
+    git clone https://github.com/fh3338/scores-tool.git
     cd 你的仓库名
