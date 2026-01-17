@@ -1,193 +1,27 @@
-import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import pandas as pd
+from flask import Flask, request, jsonify
 import os
 from datetime import datetime
-
-class ScoreAnalyzer:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("重庆市潼南区塘坝文昌学校成绩计算工具 - by袁华")
-        self.root.geometry("900x700")
-        self.root.resizable(False, False)
-        
-        self.file_path = None
-        self.df = None
-        self.scores_columns = {
-            '语文': 'H',
-            '数学': 'K',
-            '英语': 'N',
-            '科学': 'Q',
-            '道法': 'T'
-        }
-        
-        self.setup_ui()
+app = Flask(__name__)
+class ScoreAnalyzer:   
     
-    def setup_ui(self):
-        main_frame = ttk.Frame(self.root, padding="20")
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        
-        # 标题
-        ttk.Label(main_frame, text="学生成绩批量分析工具", 
-                 font=('微软雅黑', 16, 'bold')).pack(pady=20)
-        
-        # 打开文件按钮
-        self.open_file_btn = ttk.Button(
-            main_frame, text="📂 打开Excel成绩文件", 
-            command=self.open_file, style='TButton',
-            width=30
-        )
-        ttk.Style().configure('TButton', font=('微软雅黑', 12))
-        self.open_file_btn.pack(pady=15)
-        
-        # 文件状态
-        self.file_status = ttk.Label(
-            main_frame, text="未加载文件，请先点击上方按钮选择Excel文件",
-            font=('微软雅黑', 10), foreground='#666666'
-        )
-        self.file_status.pack(pady=5)
-        
-        # 分割线
-        ttk.Separator(main_frame, orient=tk.HORIZONTAL).pack(fill=tk.X, pady=20)
-        
-        # 总分设置
-        ttk.Label(main_frame, text="各科总分设置（可修改）", 
-                 font=('微软雅黑', 12, 'bold')).pack(pady=10)
-        entry_frame = ttk.Frame(main_frame)
-        entry_frame.pack(pady=8)
-        self.score_entries = {}
-        for idx, subject in enumerate(self.scores_columns.keys()):
-            ttk.Label(entry_frame, text=f"{subject}：", font=('微软雅黑', 10)).grid(
-                row=0, column=idx*2, padx=3, pady=5
-            )
-            entry = ttk.Entry(entry_frame, width=8, font=('微软雅黑', 10))
-            entry.insert(0, "100")
-            entry.grid(row=0, column=idx*2+1, padx=3, pady=5)
-            self.score_entries[subject] = entry
-        ttk.Label(entry_frame, text="分", font=('微软雅黑', 10)).grid(
-            row=0, column=len(self.scores_columns)*2, padx=3
-        )
-        
-        # 分析按钮
-        self.analyze_btn = ttk.Button(
-            main_frame, text="🚀 开始成绩分析", 
-            command=self.analyze_scores, width=30
-        )
-        self.analyze_btn.pack(pady=20)
-        
-        # 结果展示
-        ttk.Label(main_frame, text="分析结果预览", font=('微软雅黑', 12, 'bold')).pack(pady=10, anchor=tk.W)
-        result_frame = ttk.Frame(main_frame)
-        result_frame.pack(fill=tk.BOTH, expand=True)
-        scrollbar = ttk.Scrollbar(result_frame, orient=tk.VERTICAL)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
-        self.result_text = tk.Text(
-            result_frame, height=12, font=('微软雅黑', 9),
-            yscrollcommand=scrollbar.set, state='disabled'
-        )
-        self.result_text.pack(fill=tk.BOTH, expand=True, padx=2)
-        scrollbar.config(command=self.result_text.yview)
-        
-        # 状态栏
-        self.status_var = tk.StringVar(value="就绪 | 等待加载文件")
-        self.status_bar = ttk.Label(
-            main_frame, textvariable=self.status_var, 
-            relief=tk.SUNKEN, anchor=tk.W, padding=5
-        )
-        self.status_bar.pack(fill=tk.X, pady=10)
-    
-    def open_file(self):
-        """打开Excel成绩文件"""
-        try:
-            file_path = filedialog.askopenfilename(
-                title="选择Excel成绩文件",
-                filetypes=[("Excel文件", "*.xlsx"), ("旧版Excel", "*.xls")],
-                initialdir=os.path.expanduser("~")
-            )
-            if not file_path:
-                return
-            if not os.path.exists(file_path) or not file_path.lower().endswith(('.xlsx', '.xls')):
-                messagebox.showerror("错误", "请选择有效的Excel文件（.xlsx/.xls）")
-                return
-            
-            self.df = pd.read_excel(file_path, header=None, skiprows=4, engine='openpyxl')
-            self.df.columns = [chr(65 + i) for i in range(len(self.df.columns))]
-            
-            required_cols = ['B'] + list(self.scores_columns.values())
-            missing_cols = [col for col in required_cols if col not in self.df.columns]
-            if missing_cols:
-                raise ValueError(f"缺少必要列：{', '.join(missing_cols)}\n请检查Excel文件格式！")
-            
-            self.file_path = file_path
-            file_name = os.path.basename(file_path)
-            self.file_status.config(
-                text=f"已加载：{file_name} | 共{len(self.df)}条数据",
-                foreground='#28a745'
-            )
-            self.status_var.set(f"就绪 | 已加载{file_name}，可开始分析")
-            messagebox.showinfo("成功", f"Excel文件加载成功！\n共读取{len(self.df)}条学生数据")
-        except Exception as e:
-            messagebox.showerror("文件加载失败", f"失败原因：{str(e)}")
-            self.file_status.config(text="加载失败，请重新选择文件", foreground='#dc3545')
-            self.status_var.set("错误 | 文件加载失败")
-    
-    def analyze_scores(self):
-        """核心分析逻辑，生成Excel结果"""
-        if self.df is None:
-            messagebox.showerror("提示", "请先点击【打开Excel成绩文件】按钮加载文件！")
-            return
-        
-        # 校验总分
-        try:
-            full_scores = {}
-            for subject, entry in self.score_entries.items():
-                val = entry.get().strip()
-                if not val:
-                    raise ValueError(f"请填写{subject}的总分！")
-                score = float(val)
-                if score <= 0:
-                    raise ValueError(f"{subject}总分必须大于0！")
-                full_scores[subject] = score
-        except ValueError as e:
-            messagebox.showerror("输入错误", str(e))
-            return
-        
-        try:
-            self.status_var.set("分析中 | 正在处理成绩数据，请稍候...")
-            self.root.update_idletasks()
-            df = self.df.copy()
-            total_students = len(df)
-            results_text = []  # 界面预览文本
-            excel_data = []    # Excel表格数据（年级+班级）
-
-            # 分数列转数值，空值填0
             for col in self.scores_columns.values():
                 df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
             df['总分'] = df[list(self.scores_columns.values())].sum(axis=1, skipna=True)
-
-            # ---------------------- 年级整体统计 ----------------------
-            results_text.append("="*80)
-            results_text.append("                    年级整体成绩统计报告")
-            results_text.append("="*80)
-            # 年级统计行（Excel）
-            grade_row = ['年级整体', total_students, '—']
             for subject, col in self.scores_columns.items():
                 students_to_count = max(1, round(total_students * 0.95))
                 top_scores = df[col].nlargest(students_to_count)
                 avg_score = top_scores.mean() if not top_scores.empty else 0.0
-                
                 excellent_cutoff = full_scores[subject] * 0.8
                 pass_cutoff = full_scores[subject] * 0.6
                 fail_cutoff = full_scores[subject] * 0.4
                 excellent_count = len(df[df[col] >= excellent_cutoff])
                 pass_count = len(df[df[col] >= pass_cutoff])
                 fail_count = len(df[df[col] < fail_cutoff])
-                
                 excellent_rate = (excellent_count / total_students * 100) if total_students > 0 else 0.0
                 pass_rate = (pass_count / total_students * 100) if total_students > 0 else 0.0
                 fail_rate = (fail_count / total_students * 100) if total_students > 0 else 0.0
-
                 # 界面文本
+                @app.route('/analyze', methods=['POST'])
                 results_text.append(f"\n{subject}科目：")
                 results_text.append(f"  年级平均分（前95%学生）：{avg_score:.2f} 分")
                 results_text.append(f"  优生人数：{excellent_count} 人 | 优生率：{excellent_rate:.2f}%")
